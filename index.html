@@ -1949,7 +1949,7 @@ function renderDashboard(){
     const icName=c.icon||'tag';
     const isEmoji=/\p{Emoji}/u.test(icName);
     return `<div class="cat-card"><div class="cat-ic-wrap" style="background:${color}22;color:${color}">${isEmoji?icName:icon(icName)}</div><div class="cat-nm">${c.name}</div><div class="cat-vl">${fmtR(ct[c.id]||0)}</div></div>`;
-  }).join(''):'<div class="empty"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="2" x2="22" y2="22"/><path d="M9 5H2v7l5 5"/><path d="M14.5 14.5L9.29 19.71c-.94.94-2.48.94-3.42 0L2 16"/><path d="M16 5h4v4l-4.4 4.4"/></svg><p>Sem categorias.</p></div>';
+  }).join(''):'<div class="empty"><p>Sem categorias.</p></div>';
   // Últimos lançamentos do período: ordena por data desc (não por created_at)
   // Assim parcelas futuras não aparecem — cada uma só aparece no seu mês
   const rec=[...txs].sort((a,b)=>new Date(b.date+'T12:00')-new Date(a.date+'T12:00')).slice(0,5);
