@@ -126,6 +126,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .page-title{font-family:'DM Sans',serif;font-size:1.75rem;margin-bottom:.2rem}
 .page-sub{color:var(--text2);font-size:.875rem;margin-bottom:1rem}
 .top-bar{display:flex;justify-content:space-between;align-items:flex-center;margin-bottom:0px;flex-wrap:wrap;gap:1rem}
+
+/* ── TOGGLE PERÍODO MÊS/ANO ── */
+.period-toggle{display:flex;gap:.3rem;background:var(--bg3);border-radius:8px;padding:3px;border:1px solid var(--border)}
+.period-btn{padding:.3rem .85rem;border-radius:6px;border:none;background:transparent;color:var(--text2);font-family:inherit;font-size:.78rem;font-weight:500;cursor:pointer;transition:all .2s;white-space:nowrap}
+.period-btn.active{background:var(--teal);color:#000;font-weight:700}
+
 .month-nav{display:flex;align-items:center;gap:.6rem;margin-bottom:5px}
 .month-btn{background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:.15rem .7rem;border-radius:8px;cursor:pointer;font-family:inherit;font-size:.78rem;transition:all .2s}
 .month-btn:hover{color:var(--teal);border-color:var(--teal)}
@@ -762,10 +768,16 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover{opacity:1}
               <div class="page-sub" id="dash-month-label">Saldo Total</div>
             </div>
           </div>
-          <div class="month-nav">
-            <button class="month-btn" onclick="changeMonth(-1)">&#8592;</button>
-            <span class="month-label" id="month-display">Mai 2026</span>
-            <button class="month-btn" onclick="changeMonth(1)">&#8594;</button>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.4rem">
+            <div class="period-toggle">
+              <button class="period-btn active" id="period-btn-month" onclick="setPeriodView('month')">Mês</button>
+              <button class="period-btn" id="period-btn-year" onclick="setPeriodView('year')">Ano</button>
+            </div>
+            <div class="month-nav">
+              <button class="month-btn" onclick="changeMonth(-1)">&#8592;</button>
+              <span class="month-label" id="month-display">Mai 2026</span>
+              <button class="month-btn" onclick="changeMonth(1)">&#8594;</button>
+            </div>
           </div>
         </div>
         <div id="due-alerts"></div>
@@ -1718,6 +1730,7 @@ document.addEventListener('click',e=>{
 
 // ═══════════ NAV ═══════════
 let curMonth=new Date().getMonth(), curYear=new Date().getFullYear();
+let dashPeriod='month'; // 'month' | 'year'
 const MONTHS=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 function gotoPage(id){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -1734,20 +1747,33 @@ function gotoPage(id){
   // No dashboard o botão fica inline no top-bar; nas outras páginas usa a barra separada
   if(mobHdr)mobHdr.style.display=(id!=='dashboard'&&window.innerWidth<=768)?'flex':'none';
   if(dashHam)dashHam.style.display=(id==='dashboard'&&window.innerWidth<=768)?'flex':'none';
-  document.getElementById('month-display').textContent=MONTHS[curMonth]+' '+curYear;
-  document.getElementById('dash-month-label').textContent='Saldo total de '+MONTHS[curMonth];
+  const periodLabel=dashPeriod==='year'?String(curYear):MONTHS[curMonth]+' '+curYear;
+  document.getElementById('month-display').textContent=periodLabel;
+  document.getElementById('dash-month-label').textContent=dashPeriod==='year'?'Acumulado de '+curYear:'Saldo total de '+MONTHS[curMonth];
   renderPage(id);
 }
 function changeMonth(d){
-  curMonth+=d;
-  if(curMonth<0){curMonth=11;curYear--;}
-  if(curMonth>11){curMonth=0;curYear++;}
+  if(dashPeriod==='year'){
+    curYear+=d;
+  } else {
+    curMonth+=d;
+    if(curMonth<0){curMonth=11;curYear--;}
+    if(curMonth>11){curMonth=0;curYear++;}
+  }
+  const a=document.querySelector('.page.active');
+  if(a)renderPage(a.id.replace('page-',''));
+}
+function setPeriodView(period){
+  dashPeriod=period;
+  document.getElementById('period-btn-month').classList.toggle('active',period==='month');
+  document.getElementById('period-btn-year').classList.toggle('active',period==='year');
   const a=document.querySelector('.page.active');
   if(a)renderPage(a.id.replace('page-',''));
 }
 function renderPage(id){
-  document.getElementById('month-display').textContent=MONTHS[curMonth]+' '+curYear;
-  document.getElementById('dash-month-label').textContent='Saldo total de '+MONTHS[curMonth];
+  const periodLabel=dashPeriod==='year'?String(curYear):MONTHS[curMonth]+' '+curYear;
+  document.getElementById('month-display').textContent=periodLabel;
+  document.getElementById('dash-month-label').textContent=dashPeriod==='year'?'Acumulado de '+curYear:'Saldo total de '+MONTHS[curMonth];
   if(id==='dashboard')renderDashboard();
   if(id==='transactions')renderTransactions();
   if(id==='cards')renderCardsPage();
@@ -1760,43 +1786,23 @@ function renderPage(id){
 }
 
 // ═══════════ CARD STACK ═══════════
-const CARD_COLORS=['#00C9B1','#ff4d6a','#f5a623','#4286f4','#b44eed','#00e5a0','#ff6b35','#ffffff'];
-let selectedColor='#00C9B1';
-function buildColorPicker(){
-  const el=document.getElementById('card-color-picker');
-  el.innerHTML=CARD_COLORS.map(c=>`<div class="cswatch${c===selectedColor?' sel':''}" style="background:${c}" onclick="pickColor('${c}',this)" title="${c}"></div>`).join('');
-}
-function pickColor(c,el){
-  selectedColor=c;
-  document.querySelectorAll('.cswatch').forEach(s=>s.classList.remove('sel'));
-  el.classList.add('sel');
-}
-
-// ═══════════ BRAND LOGOS SVG ═══════════
-const BRAND_LOGO={
-  'Mastercard':`<svg viewBox="0 0 48 30" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="18" cy="15" r="13" fill="#EB001B"/>
-    <circle cx="30" cy="15" r="13" fill="#F79E1B"/>
-    <path d="M24 5.3a13 13 0 0 1 0 19.4A13 13 0 0 1 24 5.3z" fill="#FF5F00"/>
-  </svg>`,
-  'Visa':`<svg viewBox="0 0 60 26" xmlns="http://www.w3.org/2000/svg">
-    <text x="0" y="22" font-family="Arial,sans-serif" font-size="26" font-weight="800" font-style="italic" fill="white" letter-spacing="-1">VISA</text>
-  </svg>`,
-  'Elo':`<svg viewBox="0 0 64 28" xmlns="http://www.w3.org/2000/svg">
-    <text x="2" y="22" font-family="Arial,sans-serif" font-size="22" font-weight="900" fill="white">elo</text>
-  </svg>`,
-  'Amex':`<svg viewBox="0 0 72 28" xmlns="http://www.w3.org/2000/svg">
-    <text x="0" y="22" font-family="Arial,sans-serif" font-size="16" font-weight="800" fill="white" letter-spacing="1">AMEX</text>
-  </svg>`,
-  'Hipercard':`<svg viewBox="0 0 80 28" xmlns="http://www.w3.org/2000/svg">
-    <rect x="0" y="2" width="75" height="24" rx="4" fill="#B3131A"/>
-    <text x="6" y="20" font-family="Arial,sans-serif" font-size="13" font-weight="800" fill="white">hipercard</text>
-  </svg>`,
-};
-
-// ═══════════ CARD STACK ═══════════
 let stackIdx=0;
 let _ccCards=[];
+
+// Calcula posição circular de um slide em relação ao ativo
+function circularPos(idx, active, n, STEP){
+  if(n===1) return {tx:'0%',sc:1,op:1,zi:100};
+  let diff=idx-active;
+  // Normaliza para menor caminho circular
+  if(diff>Math.floor(n/2))  diff-=n;
+  else if(diff<-Math.ceil(n/2)) diff+=n;
+  const tx=`${diff*STEP*100}%`;
+  const absDiff=Math.abs(diff);
+  const zi=diff===0?100:(diff>0?Math.max(1,98-diff*2):Math.max(1,98+diff*2));
+  const op=absDiff===0?1:absDiff===1?0.60:absDiff===2?0.35:0;
+  const sc=absDiff===0?1:absDiff===1?0.94:0.88;
+  return {tx,sc,op,zi};
+}
 
 function renderCardStack(cards, container){
   _ccCards=cards;
@@ -1804,14 +1810,10 @@ function renderCardStack(cards, container){
     container.innerHTML='<div class="empty"><svg width="1.8em" height="1.8em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="2" x2="22" y2="22"/><path d="M11.5 6H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h.5"/><path d="M1 10h7"/></svg><p>Nenhum cartão cadastrado.</p></div>';
     return;
   }
-  // Garante que stackIdx não ultrapasse o número de cartões
-  stackIdx=Math.max(0,Math.min(stackIdx,cards.length-1));
-
+  stackIdx=((stackIdx%cards.length)+cards.length)%cards.length;
   const txs=getTx();
   const n=cards.length;
-  const PEEK=0.30;
-  const STEP=1-PEEK;
-
+  const STEP=0.70;
   let slidesHtml='';
   cards.forEach((c,i)=>{
     const allCardSpent=txs.filter(t=>t.source==='card'&&t.cardId===c.id&&t.type==='expense').reduce((s,t)=>s+t.amount,0);
@@ -1819,12 +1821,8 @@ function renderCardStack(cards, container){
     const spent=Math.max(0,allCardSpent-cardPaidFaturas);
     const pct=Math.min((spent/(c.limit||1))*100,100);
     const bc=pct>80?'#ff4d6a':pct>50?'#f5a623':'#00e5a0';
-    const diff=i-stackIdx;
-    const tx=`${diff*STEP*100}%`;
-    const zi=diff<=0?100+diff:100-diff*2;
-    const op=diff<0?0:(diff===0?1:Math.max(0.45,0.9-diff*0.22));
-    const sc=diff===0?1:Math.max(0.92,1-diff*0.04);
     const brandSvg=BRAND_LOGO[c.brand]||`<span style="font-size:.85rem;font-weight:800;opacity:.9">${c.brand}</span>`;
+    const {tx,sc,op,zi}=circularPos(i,stackIdx,n,STEP);
     slidesHtml+=`<div class="cc-slide" data-idx="${i}"
       style="transform:translateX(${tx}) scale(${sc});z-index:${zi};opacity:${op}">
       <div class="credit-card" style="border:2px solid ${c.color||'transparent'}">
@@ -1833,7 +1831,7 @@ function renderCardStack(cards, container){
           <div class="cc-brand-logo">${brandSvg}</div>
           <div class="cc-chip"></div>
         </div>
-        <div class="cc-num">•••• •••• •••• ${c.digits||'0000'}</div>
+        <div class="cc-num">\u2022\u2022\u2022\u2022 \u2022\u2022\u2022\u2022 \u2022\u2022\u2022\u2022 ${c.digits||'0000'}</div>
         <div class="cc-bot">
           <div class="cc-left">
             <div class="cc-name">${c.name}</div>
@@ -1848,108 +1846,83 @@ function renderCardStack(cards, container){
       </div>
     </div>`;
   });
-
-  // Dots só aparecem com 2+ cartões
   const dotsHtml=n>1
     ? cards.map((_,i)=>`<div class="cc-dot${i===stackIdx?' active':''}" onclick="goStack(${i})"></div>`).join('')
     : '';
-
   container.innerHTML=`
     <div class="cc-wrap">
       <div class="cc-viewport" id="cc-viewport" style="${n===1?'cursor:default':''}">
         <div class="cc-track" id="cc-track">${slidesHtml}</div>
       </div>
       ${n>1?`<div class="cc-nav-row"><div class="cc-dots">${dotsHtml}</div></div>`:''}
-      <div class="cc-info-label">${cards[stackIdx].name} — Limite ${fmtR(cards[stackIdx].limit)}</div>
+      <div class="cc-info-label">${cards[stackIdx].name} \u2014 Limite ${fmtR(cards[stackIdx].limit)}</div>
     </div>`;
-
-  // Só adiciona swipe se tiver mais de 1 cartão
   if(n>1) attachSwipe(document.getElementById('cc-viewport'), STEP);
 }
 
 function goStack(i){
   if(!_ccCards.length)return;
-  stackIdx=Math.max(0,Math.min(i,_ccCards.length-1));
+  const n=_ccCards.length;
+  stackIdx=((i%n)+n)%n;
   const a=document.querySelector('.page.active');
   if(a)renderPage(a.id.replace('page-',''));
 }
 
 function attachSwipe(vp, STEP){
   let startX=0,startY=0,dx=0,tracking=false,vertical=false;
-  const slides=()=>vp.querySelectorAll('.cc-slide');
+  const getSlides=()=>vp.querySelectorAll('.cc-slide');
   const n=_ccCards.length;
 
-  function liveUpdate(rawDx){
-    const vpW=vp.offsetWidth;
-    // Limita o arraste nas extremidades: resistência elástica de 30%
-    let clampedDx=rawDx;
-    if(rawDx<0&&stackIdx===n-1){
-      // Tentando ir além do último: resiste
-      clampedDx=rawDx*0.25;
-    } else if(rawDx>0&&stackIdx===0){
-      // Tentando ir além do primeiro: resiste
-      clampedDx=rawDx*0.25;
-    }
-    slides().forEach(sl=>{
+  function applyPos(extraPct, animated){
+    getSlides().forEach(sl=>{
       const idx=parseInt(sl.dataset.idx);
-      const diff=idx-stackIdx;
-      const baseTx=diff*STEP*100;
-      const sc=diff===0?1:Math.max(0.92,1-Math.abs(diff)*0.04);
-      const op=diff<0?0:(diff===0?1:Math.max(0.45,0.9-diff*0.22));
-      const extraPct=(clampedDx/vpW)*100;
-      sl.style.transform=`translateX(calc(${baseTx}% + ${extraPct}%)) scale(${sc})`;
+      const {tx,sc,op,zi}=circularPos(idx,stackIdx,n,STEP);
+      const base=parseFloat(tx);
+      sl.style.transform=`translateX(calc(${base}% + ${extraPct}%)) scale(${sc})`;
       sl.style.opacity=op;
-      sl.style.transition='none';
-    });
-  }
-
-  function settle(){
-    slides().forEach(sl=>{
-      const idx=parseInt(sl.dataset.idx);
-      const diff=idx-stackIdx;
-      const tx=`${diff*STEP*100}%`;
-      const sc=diff===0?1:Math.max(0.92,1-Math.abs(diff)*0.04);
-      const op=diff<0?0:(diff===0?1:Math.max(0.45,0.9-diff*0.22));
-      sl.style.transform=`translateX(${tx}) scale(${sc})`;
-      sl.style.opacity=op;
-      sl.style.transition='transform .38s cubic-bezier(.4,0,.2,1),opacity .38s';
+      sl.style.zIndex=zi;
+      sl.style.transition=animated?'transform .38s cubic-bezier(.4,0,.2,1),opacity .38s':'none';
     });
   }
 
   function onStart(x,y){startX=x;startY=y;dx=0;tracking=true;vertical=false;}
   function onMove(x,y){
     if(!tracking)return;
-    dx=x-startX;
-    const dy=y-startY;
+    const dy=y-startY; dx=x-startX;
     if(!vertical&&Math.abs(dy)>Math.abs(dx)&&Math.abs(dy)>8){vertical=true;return;}
     if(vertical)return;
-    liveUpdate(dx);
+    applyPos((dx/(vp.offsetWidth||1))*100, false);
   }
   function onEnd(){
     if(!tracking)return;
     tracking=false;
-    if(vertical){settle();return;}
-    const threshold=vp.offsetWidth*0.18;
-    // Só avança/recua se houver cartão no sentido do arraste
-    if(dx<-threshold&&stackIdx<n-1) stackIdx++;
-    else if(dx>threshold&&stackIdx>0) stackIdx--;
-    settle();
+    if(vertical){applyPos(0,true);return;}
+    const thresh=vp.offsetWidth*0.18;
+    if(dx<-thresh)      stackIdx=(stackIdx+1)%n;   // esquerda → próximo
+    else if(dx>thresh)  stackIdx=((stackIdx-1)+n)%n; // direita → anterior
+    applyPos(0,true);
     vp.parentElement.querySelectorAll('.cc-dot').forEach((d,i)=>d.classList.toggle('active',i===stackIdx));
     const lbl=vp.parentElement.querySelector('.cc-info-label');
-    if(lbl)lbl.textContent=`${_ccCards[stackIdx].name} — Limite ${fmtR(_ccCards[stackIdx].limit)}`;
+    if(lbl)lbl.textContent=`${_ccCards[stackIdx].name} \u2014 Limite ${fmtR(_ccCards[stackIdx].limit)}`;
   }
 
   vp.addEventListener('touchstart',e=>{const t=e.touches[0];onStart(t.clientX,t.clientY);},{passive:true});
-  vp.addEventListener('touchmove',e=>{if(!vertical){e.preventDefault();}const t=e.touches[0];onMove(t.clientX,t.clientY);},{passive:false});
+  vp.addEventListener('touchmove',e=>{if(!vertical)e.preventDefault();const t=e.touches[0];onMove(t.clientX,t.clientY);},{passive:false});
   vp.addEventListener('touchend',onEnd);
   vp.addEventListener('mousedown',e=>{onStart(e.clientX,e.clientY);e.preventDefault();});
   window.addEventListener('mousemove',e=>{if(tracking)onMove(e.clientX,e.clientY);});
   window.addEventListener('mouseup',()=>{if(tracking)onEnd();});
 }
 
+
 // ═══════════ DASHBOARD ═══════════
 function renderDashboard(){
-  const txs=getTx().filter(t=>{const d=new Date(t.date);return d.getMonth()===curMonth&&d.getFullYear()===curYear;});
+  // Filtra por mês ou por ano conforme seleção
+  const txs=getTx().filter(t=>{
+    const d=new Date(t.date+'T12:00');
+    if(dashPeriod==='year') return d.getFullYear()===curYear;
+    return d.getMonth()===curMonth&&d.getFullYear()===curYear;
+  });
   let tin=0,tout=0;
   txs.forEach(t=>{
     if(t.transfer_group)return; // ignora transferências
@@ -1960,12 +1933,15 @@ function renderDashboard(){
   bEl.textContent=fmtR(bal); bEl.className='b-value '+(bal>=0?'pos':'neg');
   document.getElementById('dash-in').textContent=fmtR(tin);
   document.getElementById('dash-out').textContent=fmtR(tout);
+  // Atualiza label do saldo conforme período
+  const bLbl=document.querySelector('.b-label');
+  if(bLbl)bLbl.textContent=dashPeriod==='year'?'Saldo do Ano '+curYear:'Saldo do Mês';
   document.getElementById('stat-bank').textContent=fmtR(getAccs().reduce((s,a)=>s+a.balance,0));
   document.getElementById('stat-wallet').textContent=fmtR(getWals().reduce((s,w)=>s+w.balance,0));
   document.getElementById('stat-invest').textContent=fmtR(getInvs().reduce((s,i)=>s+i.amount,0));
   renderCardStack(getCards(),document.getElementById('dash-cards-area'));
   const cats=getCats(); const ct={};
-  getTx().filter(t=>t.type==='expense'&&!t.transfer_group).forEach(t=>{ct[t.category]=(ct[t.category]||0)+t.amount;});
+  txs.filter(t=>t.type==='expense'&&!t.transfer_group).forEach(t=>{ct[t.category]=(ct[t.category]||0)+t.amount;});
   const cmap=Object.fromEntries(cats.map(c=>[c.id,c]));
   const cg=document.getElementById('dash-cats');
   cg.innerHTML=cats.length?cats.map(c=>{
@@ -1974,7 +1950,9 @@ function renderDashboard(){
     const isEmoji=/\p{Emoji}/u.test(icName);
     return `<div class="cat-card"><div class="cat-ic-wrap" style="background:${color}22;color:${color}">${isEmoji?icName:icon(icName)}</div><div class="cat-nm">${c.name}</div><div class="cat-vl">${fmtR(ct[c.id]||0)}</div></div>`;
   }).join(''):'<div class="empty"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="2" x2="22" y2="22"/><path d="M9 5H2v7l5 5"/><path d="M14.5 14.5L9.29 19.71c-.94.94-2.48.94-3.42 0L2 16"/><path d="M16 5h4v4l-4.4 4.4"/></svg><p>Sem categorias.</p></div>';
-  const rec=[...getTx()].sort((a,b)=>new Date(b.created_at||b.date)-new Date(a.created_at||a.date)).slice(0,5);
+  // Últimos lançamentos do período: ordena por data desc (não por created_at)
+  // Assim parcelas futuras não aparecem — cada uma só aparece no seu mês
+  const rec=[...txs].sort((a,b)=>new Date(b.date+'T12:00')-new Date(a.date+'T12:00')).slice(0,5);
   renderTxList(rec,document.getElementById('dash-tx-list'));
 }
 function catIcon(name){
@@ -2110,9 +2088,10 @@ async function deleteInstallmentGroup(group){
 }
 function editTx(id){
   const t=getTx().find(x=>x.id===id); if(!t)return;
+  // Define edit-id ANTES de openModal para evitar reset
+  document.getElementById('tx-edit-id').value=id;
   populateTxModal();
   document.getElementById('tx-modal-title').textContent='Editar Lançamento';
-  document.getElementById('tx-edit-id').value=id;
   setTxType(t.type);
   document.getElementById('tx-desc').value=t.desc;
   moneySet('tx-amount',t.amount);
@@ -2763,8 +2742,9 @@ async function saveCard(){
 }
 function editCard(id){
   const c=getCards().find(x=>x.id===id); if(!c)return;
-  document.getElementById('card-modal-title').textContent='Editar Cartão';
+  // Define edit-id ANTES de openModal para evitar reset
   document.getElementById('card-edit-id').value=id;
+  document.getElementById('card-modal-title').textContent='Editar Cartão';
   document.getElementById('card-name').value=c.name;
   moneySet('card-limit',c.limit);
   document.getElementById('card-digits').value=c.digits;
@@ -3424,8 +3404,9 @@ async function saveCategory(){
 }
 function editCategory(id){
   const c=getCats().find(x=>x.id===id); if(!c)return;
-  document.getElementById('cat-modal-title').textContent='Editar Categoria';
+  // Define edit-id ANTES de openModal
   document.getElementById('cat-edit-id').value=id;
+  document.getElementById('cat-modal-title').textContent='Editar Categoria';
   document.getElementById('cat-name-input').value=c.name;
   document.getElementById('cat-selected-icon').value=c.icon||'tag';
   document.getElementById('cat-selected-color').value=c.color||'#00C9B1';
@@ -3492,37 +3473,38 @@ function renderReports(){
 function openModal(id){
   if(id==='modal-add-tx'){
     populateTxModal();
-    document.getElementById('tx-modal-title').textContent='Novo Lançamento';
-    document.getElementById('tx-edit-id').value='';
-    document.getElementById('tx-desc').value='';
-    moneyClear('tx-amount');
-    document.getElementById('tx-date').value=new Date().toISOString().split('T')[0];
-    setTxType('expense');
-    resetInstallment();
-    // Restaura visibilidade dos tabs (podem ter sido ocultados pelo quickTx)
-    const expBtn=document.getElementById('tx-type-exp');
-    const traBtn=document.getElementById('tx-type-tra');
-    if(expBtn) expBtn.style.display='';
-    if(traBtn) traBtn.style.display='';
-    // reset income fields
-    const di=document.getElementById('tx-desc-income');if(di)di.value='';
-    // reset investment modal handled by setInvRenda on open
-    const oi=document.getElementById('income-origin');if(oi)oi.value='';
-    const iv=document.getElementById('income-type-val');if(iv)iv.value='salary';
-    document.querySelectorAll('.income-type-btn').forEach((b,i)=>b.classList.toggle('sel',i===0));
-    const instWrap=document.getElementById('tx-installment-wrap');
-    if(instWrap)instWrap.style.display='none';
-    const trDesc=document.getElementById('tx-transfer-desc');if(trDesc)trDesc.value='';
-    const trFrom=document.getElementById('tx-transfer-from');if(trFrom)trFrom.value='';
-    const trTo=document.getElementById('tx-transfer-to');if(trTo)trTo.value='';
+    const txEid=document.getElementById('tx-edit-id').value;
+    if(!txEid){
+      document.getElementById('tx-modal-title').textContent='Novo Lançamento';
+      document.getElementById('tx-desc').value='';
+      moneyClear('tx-amount');
+      document.getElementById('tx-date').value=new Date().toISOString().split('T')[0];
+      setTxType('expense');
+      resetInstallment();
+      const expBtn=document.getElementById('tx-type-exp');
+      const traBtn=document.getElementById('tx-type-tra');
+      if(expBtn) expBtn.style.display='';
+      if(traBtn) traBtn.style.display='';
+      const di=document.getElementById('tx-desc-income');if(di)di.value='';
+      const oi=document.getElementById('income-origin');if(oi)oi.value='';
+      const iv=document.getElementById('income-type-val');if(iv)iv.value='salary';
+      document.querySelectorAll('.income-type-btn').forEach((b,i)=>b.classList.toggle('sel',i===0));
+      const instWrap=document.getElementById('tx-installment-wrap');
+      if(instWrap)instWrap.style.display='none';
+      const trDesc=document.getElementById('tx-transfer-desc');if(trDesc)trDesc.value='';
+      const trFrom=document.getElementById('tx-transfer-from');if(trFrom)trFrom.value='';
+      const trTo=document.getElementById('tx-transfer-to');if(trTo)trTo.value='';
+    }
     const trAlert=document.getElementById('transfer-balance-alert');if(trAlert)trAlert.remove();
   }
   if(id==='modal-add-card'){
-    document.getElementById('card-modal-title').textContent='Novo Cartão';
-    document.getElementById('card-edit-id').value='';
-    ['card-name','card-digits','card-due','card-close'].forEach(f=>document.getElementById(f).value='');
-    moneyClear('card-limit');
-    selectedColor='#00C9B1'; buildColorPicker();
+    const cardEid=document.getElementById('card-edit-id').value;
+    if(!cardEid){
+      document.getElementById('card-modal-title').textContent='Novo Cartão';
+      ['card-name','card-digits','card-due','card-close'].forEach(f=>document.getElementById(f).value='');
+      moneyClear('card-limit');
+      selectedColor='#00C9B1'; buildColorPicker();
+    }
   }
   if(id==='modal-add-account'){
     // Só reseta se for criação nova (sem edit-id já definido)
@@ -3574,21 +3556,29 @@ function openModal(id){
   }
   }
   if(id==='modal-add-category'){
-    document.getElementById('cat-modal-title').textContent='Nova Categoria';
-    document.getElementById('cat-edit-id').value='';
-    document.getElementById('cat-name-input').value='';
-    document.getElementById('cat-selected-icon').value='tag';
-    document.getElementById('cat-selected-color').value='#00C9B1';
-    document.getElementById('cat-preview-box').style.display='none';
-    document.getElementById('cat-preview-nm').textContent='Nome da categoria';
-    document.getElementById('cat-icon-suggestions').classList.remove('show');
-    document.getElementById('cat-icon-suggestions').innerHTML='';
-    buildCatColorPicker('#00C9B1');
-    updateCatPreview();
+    const catEid=document.getElementById('cat-edit-id').value;
+    if(!catEid){
+      document.getElementById('cat-modal-title').textContent='Nova Categoria';
+      document.getElementById('cat-name-input').value='';
+      document.getElementById('cat-selected-icon').value='tag';
+      document.getElementById('cat-selected-color').value='#00C9B1';
+      document.getElementById('cat-preview-box').style.display='none';
+      document.getElementById('cat-preview-nm').textContent='Nome da categoria';
+      document.getElementById('cat-icon-suggestions').classList.remove('show');
+      document.getElementById('cat-icon-suggestions').innerHTML='';
+      buildCatColorPicker('#00C9B1');
+      updateCatPreview();
+    }
   }
   document.getElementById(id).classList.add('open');
 }
-function closeModal(id){document.getElementById(id).classList.remove('open');}
+function closeModal(id){
+  document.getElementById(id).classList.remove('open');
+  // Limpa edit-id ao fechar para próxima abertura ser criação nova
+  const editMap={'modal-add-tx':'tx-edit-id','modal-add-card':'card-edit-id','modal-add-category':'cat-edit-id','modal-add-account':'acc-edit-id','modal-add-wallet':'wal-edit-id','modal-add-investment':'inv-edit-id'};
+  const eidField=editMap[id];
+  if(eidField) document.getElementById(eidField).value='';
+}
 document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
 </script>
 </body>
